@@ -296,6 +296,43 @@ def main() -> None:
             # The whole response is the Jev wire shape, so it serializes to what the
             # hosted API returns.
             print(response.model_dump_json(exclude_none=True))
+
+            # The same client also speaks OpenAI's Decisions request and response
+            # schema, which is what to reach for when the endpoint has no
+            # /v1/decisions route — a local server, a gateway, an
+            # Anthropic-compatible endpoint — since the model behind it answers
+            # the same three question kinds here. ``input`` is the shared
+            # evidence, ``questions`` are predicate/choice/score questions, and
+            # the answers come back in the order they were asked, each carrying
+            # the name it was asked with, in one ``usage`` for the call. The
+            # client's own options apply as they do above; ``decision.raw`` keeps
+            # the whole jevper response — reasoning and debug included — and is
+            # left out of every dump.
+            decision = client.decisions.create(
+                input="I was charged twice for my order.",
+                questions=[
+                    {
+                        "type": "choice",
+                        "name": "department",
+                        "instructions": "Which department should handle this complaint?",
+                        "choices": [
+                            {"value": "billing", "description": "Payments, invoices, and refunds."},
+                            {"value": "technical", "description": "Problems using the product."},
+                            {"value": "sales", "description": "Pricing, plans and upgrades."},
+                        ],
+                    }
+                ],
+                model=MODEL,
+                # The client's own options apply here too; this one repeats the call
+                # above to show where an override sits, not that the two differ.
+                temperature=0.0,
+            )
+            for answer in decision.answers:
+                print(
+                    "decision", answer.type,
+                    json.dumps(answer.model_dump(mode="json")),
+                )
+            print(decision.model_dump_json())
     finally:
         # Leaving the ``with`` block closed jevper's own thread pool. The provider
         # client is yours to close; jevper never closes it, on either facade.

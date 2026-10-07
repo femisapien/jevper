@@ -22,6 +22,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from . import methods
+from .decisions import AsyncDecisions, Decisions
 from .errors import (
     ClientCapabilityError,
     InvalidQuestionError,
@@ -2663,6 +2664,16 @@ class SystemOneClient(_BaseClient):
             raise failure
         return self._assemble(context, parsed, outcomes, time.perf_counter() - start)
 
+    @property
+    def decisions(self) -> Decisions:
+        """The OpenAI Decisions API over this client: ``client.decisions.create(input=…, questions=[…])``.
+
+        A facade over ``system_one`` that takes the documented ``DecisionRequest`` and returns its
+        ``DecisionResponse``. The surfaces, methods, reasoning and few-shot options are that call's,
+        and behave as they do there. See ``docs/decisions.md``.
+        """
+        return Decisions(self)
+
     def close(self) -> None:
         """Shut down the internal thread pool. The caller owns ``client``."""
         with self._executor_lock:
@@ -2874,6 +2885,11 @@ class AsyncSystemOneClient(_BaseClient):
 
     async def aclose(self) -> None:
         """The async client holds no resources of its own; the caller owns ``client``."""
+
+    @property
+    def decisions(self) -> AsyncDecisions:
+        """The OpenAI Decisions API over this client; the async twin of ``SystemOneClient.decisions``."""
+        return AsyncDecisions(self)
 
     async def __aenter__(self) -> AsyncSystemOneClient:
         return self

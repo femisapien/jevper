@@ -776,6 +776,38 @@ def test_a_choice_answer_over_the_options_it_was_asked_about_is_kept(stub_server
     assert response.answers["c"].choice == "billing"
 
 
+@pytest.mark.parametrize(
+    ("probabilities", "match"),
+    [
+        pytest.param(
+            {"billing": 0.6}, "must carry exactly this question's options", id="an-option-missing"
+        ),
+        pytest.param({}, "must carry exactly this question's options", id="empty"),
+        pytest.param(None, "must be an object of option probabilities", id="null"),
+    ],
+)
+def test_a_choice_distribution_has_to_cover_the_options(stub_server, probabilities, match):
+    """The rule the score branch is held to, for the same reason: ``probabilities[option]`` is how the
+    caller reaches an option's probability and how the documented arithmetic reads the answer, so a
+    distribution short of an option — or missing altogether — is an answer they cannot read. A prompt
+    surface holds a model to the exact set too, so a service and a model answer under one rule."""
+    stub = stub_server(
+        systemone=answering(
+            {
+                "c": {
+                    "type": "choice",
+                    "choice": "billing",
+                    "confidence": 0.6,
+                    "probabilities": probabilities,
+                }
+            }
+        )
+    )
+
+    with pytest.raises(MalformedAnswerError, match=match):
+        client_for(stub).system_one(state=STATE, questions={"c": CHOICE})
+
+
 def test_a_noul_with_both_criteria_sides_unset_sends_no_criteria_object(stub_server):
     """``criteria: {}`` says no more than leaving the key off.
 

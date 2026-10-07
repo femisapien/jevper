@@ -9,7 +9,7 @@ from __future__ import annotations
 import functools
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -24,6 +24,11 @@ from pydantic import (
 from .errors import InvalidQuestionError, JevperError, MalformedAnswerError
 from .labels import MAX_CHOICE_OPTIONS
 from .reasoning import ReasoningContentPart
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    # ``decisions`` imports this module, and the annotation is a string either way, so the import is
+    # for type checkers alone rather than a cycle at import time.
+    from .decisions import Decision
 
 JSONContent = str | int | float | bool | None | dict[str, Any] | list[Any]
 Probability = Annotated[float, Field(allow_inf_nan=False)]
@@ -451,6 +456,19 @@ class SystemOneResponse(BaseModel):
     def scores(self) -> dict[str, ScoreAnswer]:
         return {key: answer for key, answer in self.answers.items() if isinstance(answer, ScoreAnswer)}
 
+    def to_decision(self) -> Decision:
+        """This response in OpenAI's Decisions response schema — ``model``, ``answers``, ``usage``.
+
+        Only what the response itself remembers can be echoed: a question's ``name`` is its id here,
+        a choice's value is the option key it was asked with, and a score level's label is that
+        level's criteria entry as text. ``client.decisions.create`` keeps the request beside the
+        answer and echoes the caller's own names, values and labels instead; this is the same
+        conversion for a response that arrived from ``system_one`` directly.
+        """
+        from .decisions import to_decision
+
+        return to_decision(self)
+
 
 class NativeSystemOneResponse(SystemOneResponse):
     """A System One response from ollaya's native endpoint, which reports more than TypeSafe's.
@@ -544,21 +562,33 @@ def parse_answer(question_id: str, question: Question, payload: Any) -> Answer:
         # turn the documented ``answer.probabilities[0]`` into a KeyError on this surface alone.
         payload = {**payload, "probabilities": {int(key): value for key, value in raw.items()}}
     if question.type == "choice":
-        # The same check the score branch makes, for the same reason: a choice naming an option the
-        # caller never offered is a decision about a question that was not asked, and the caller
-        # indexes their own criteria with it.
+        # The same check the score branch makes, in both directions and for the same reasons: a choice
+        # naming an option the caller never offered is a decision about a question that was not asked,
+        # and an option the service left out is a probability the caller cannot read — the documented
+        # ``answer.probabilities[option]`` is how the arithmetic reaches it, and a distribution short
+        # of an option is no longer the distribution the question was asked for. The score branch reads
+        # its levels the same way, so the two answer kinds are held to one rule.
         options = {str(option) for option in question.criteria}
-        probabilities = payload.get("probabilities")
-        unknown = sorted(
-            str(key)
-            for key in (probabilities if isinstance(probabilities, Mapping) else {})
-            if str(key) not in options
-        )
+        raw = payload.get("probabilities")
+        if not isinstance(raw, Mapping):
+            # Read before pydantic gets it, so a null here is a jevper error naming the question
+            # rather than an answer with no distribution in it at all.
+            raise MalformedAnswerError(
+                f"question {question_id!r}: the service's choice distribution must be an object of "
+                f"option probabilities, got {type(raw).__name__}"
+            )
+        answered = {str(key) for key in raw}
+        unknown = sorted(answered - options)
         chosen = payload.get("choice")
         if unknown or (chosen is not None and str(chosen) not in options):
             raise MalformedAnswerError(
                 f"question {question_id!r}: the service answered with "
                 f"{unknown or [chosen]!r}, which are not this question's {sorted(options)}"
+            )
+        if answered != options:
+            raise MalformedAnswerError(
+                f"question {question_id!r}: the service's choice distribution must carry exactly "
+                f"this question's options {sorted(options)}, got {sorted(answered)}"
             )
     try:
         return _ANSWER_TYPES[kind].model_validate(payload)

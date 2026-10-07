@@ -2,6 +2,8 @@
 
 This guide takes you from a fresh install to one typed result. jevper is a library: it receives a caller-owned client and sends requests through that client. Credentials and provider configuration stay with you.
 
+If what you want is OpenAI's Decisions schema (`input` and `questions` in, `answers` and `usage` out) over a model that has no `/v1/decisions` route, read [Decisions API compatibility](decisions.md) instead: it is the same client, the same surfaces and the same options, with that schema on the outside.
+
 ## 1. Install
 
 ```sh

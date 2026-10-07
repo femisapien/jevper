@@ -1,11 +1,27 @@
-"""jevper — the Jev (System One) interface over any OpenAI-compatible client.
+"""jevper — OpenAI's Decisions API schema, and the Jev (System One) interface, over any OpenAI-compatible model.
 
-Independent implementation of the documented System One wire format; not affiliated with TypeSafe.
+Independent implementation of OpenAI's documented Decisions API schema and of the documented System One
+wire format; not affiliated with, endorsed by, or supported by OpenAI or TypeSafe AI.
 """
 
 from __future__ import annotations
 
 from .client import AsyncSystemOneClient, Examples, RetryPolicy, SystemOneClient
+from .decisions import (
+    AsyncDecisions,
+    Decision,
+    DecisionAnswer,
+    DecisionChoiceAnswer,
+    DecisionChoiceProbability,
+    DecisionInputTokensDetails,
+    DecisionOutputTokensDetails,
+    DecisionPredicateAnswer,
+    DecisionRefusalAnswer,
+    Decisions,
+    DecisionScoreAnswer,
+    DecisionScoreProbability,
+    DecisionUsage,
+)
 from .errors import (
     ClientCapabilityError,
     IncompleteAnswerError,
@@ -48,15 +64,28 @@ from .types import (
     Usage,
 )
 
-__version__ = "0.7.11"
+__version__ = "0.7.12"
 
 __all__ = [
     "Answer",
     "Api",
+    "AsyncDecisions",
     "AsyncSystemOneClient",
     "Choice",
     "ChoiceAnswer",
     "ClientCapabilityError",
+    "Decision",
+    "DecisionAnswer",
+    "DecisionChoiceAnswer",
+    "DecisionChoiceProbability",
+    "DecisionInputTokensDetails",
+    "DecisionOutputTokensDetails",
+    "DecisionPredicateAnswer",
+    "DecisionRefusalAnswer",
+    "DecisionScoreAnswer",
+    "DecisionScoreProbability",
+    "DecisionUsage",
+    "Decisions",
     "Example",
     "Examples",
     "IncompleteAnswerError",

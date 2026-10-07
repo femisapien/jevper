@@ -177,6 +177,7 @@ but its public API, and runs against five local servers.
 | Every constructor option, with defaults | [API reference](api.md#systemoneclient) |
 | Every per-call option | [API reference](api.md#system_one) |
 | `RetryPolicy` | [API reference](api.md#retrypolicy) |
+| The Decisions API wrapper | [Decisions API](decisions.md) |
 | `ReasoningConfig` and mode resolution | [Reasoning](reasoning.md), [API reference](api.md#reasoningconfig) |
 | The `debug` record and its conditional keys | [API reference](api.md#debug) |
 | Every error and what raises it | [Troubleshooting](troubleshooting.md), [API reference](api.md#errors) |

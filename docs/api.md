@@ -1,6 +1,6 @@
 # API reference
 
-*Independent implementation of the documented System One wire format — not affiliated with TypeSafe.*
+*Independent implementation of OpenAI's documented Decisions API schema and of the documented System One wire format — not affiliated with, endorsed by, or supported by OpenAI or TypeSafe.*
 
 Everything below is importable from the package root:
 
@@ -12,6 +12,11 @@ from jevper import SystemOneClient, AsyncSystemOneClient, Choice, Noul, Score, E
 `MethodSelection`, `NoulAnswer`, `NoulCriteria`, `ProviderError`, `Question`, `Readout`,
 `ReasoningContentPart`, `ReasoningSummaryPart`, `ReasoningTextPart`, `RetryPolicy`, `ScoreAnswer`,
 `SystemOneResponse`, `Usage`, `reasoning_text`, the seven other error classes, and `__version__`.
+
+For the [Decisions API](decisions.md) it contains `AsyncDecisions`, `Decisions`, `Decision`,
+`DecisionAnswer`, `DecisionChoiceAnswer`, `DecisionChoiceProbability`, `DecisionInputTokensDetails`,
+`DecisionOutputTokensDetails`, `DecisionPredicateAnswer`, `DecisionRefusalAnswer`,
+`DecisionScoreAnswer`, `DecisionScoreProbability` and `DecisionUsage`.
 
 ## `SystemOneClient`
 
@@ -222,6 +227,41 @@ Neither closes the client you passed in.
 Identical constructor and `system_one` signature, with `async def system_one(...)`. The async client uses
 `asyncio.Semaphore(max_concurrency)` instead of a thread pool, and has no thread pool to close.
 
+## Decisions API
+
+```python
+client.decisions.create(*, input, questions, examples=(), model=None, method=None, api=None,
+                        reasoning=None, temperature=None, prompt_cache_key=None, extras=(),
+                        keep_alive=None)
+    -> Decision
+```
+
+OpenAI's [Decisions API](decisions.md) schema over this client: `input` is a string or a list of user
+messages, `questions` are 1 to 200 `predicate`/`choice`/`score` question objects, and the answer is one
+`Decision` — `model`, the `answers` in question order, and `usage`. `AsyncSystemOneClient` carries the
+same accessor as `AsyncDecisions`, awaited.
+
+```python
+Decision(model, answers, usage, raw)
+DecisionPredicateAnswer(type, name, probability)
+DecisionChoiceAnswer(type, name, choice, probabilities, confidence)
+DecisionScoreAnswer(type, name, score, probabilities, confidence)
+DecisionRefusalAnswer(type, name)
+DecisionChoiceProbability(value, probability)
+DecisionScoreProbability(value, label, probability)
+DecisionUsage(input_tokens, input_tokens_details, output_tokens, output_tokens_details, total_tokens)
+```
+
+`raw` is the whole `SystemOneResponse` behind the conversion, excluded from `model_dump()` and
+`model_dump_json()`, so a dump is the wire's own payload. Everything beyond `input` and `questions` is
+`system_one`'s option, with the same meaning and the same default.
+
+A request the schema cannot carry is refused before anything is sent: an `input_image` part (no
+surface here renders images), a question the wire's own limits reject, and two option values that
+would collapse onto one key. `safety_identifier` has no parameter, and an unknown keyword is a
+`TypeError`. A model that refuses a question raises `ModelRefusalError` rather than returning a
+`DecisionRefusalAnswer`, which exists only so a payload from the endpoint itself validates.
+
 ## Questions
 
 ```python
@@ -315,6 +355,10 @@ ScoreAnswer(type="score", score=1.05, legend={0: "Calm", 1: "Frustrated", 2: "Ve
 | `debug` | `dict[str, Any]` | Attempts and normalization notes; see below |
 
 `nouls`, `choices` and `scores` are cached properties returning `answers` filtered by answer type.
+
+`to_decision()` returns this response in OpenAI's [Decisions schema](decisions.md#converting-a-system_one-response)
+— `model`, `answers` and `usage` — echoing the question ids, option keys and criteria text the response
+itself carries.
 
 ### `NativeSystemOneResponse`
 

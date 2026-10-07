@@ -1,15 +1,68 @@
 # jevper
 
-> `jevper` is an independent implementation of the documented System One wire format. It is not affiliated
-> with, endorsed by, or supported by TypeSafe AI — questions about the API itself belong in
-> [their docs](https://docs.typesafe.ai).
+> `jevper` is an independent implementation of OpenAI's documented Decisions API schema and of the
+> documented System One wire format. It is not affiliated with, endorsed by, or supported by OpenAI or
+> TypeSafe AI — questions about those APIs belong in
+> [OpenAI's docs](https://developers.openai.com/api/docs/guides/decisions) and
+> [TypeSafe's](https://docs.typesafe.ai).
+
+## Decisions API
+
+OpenAI's [Decisions API](https://developers.openai.com/api/docs/guides/decisions) answers `predicate`,
+`choice` and `score` questions about a shared input — text or images — and returns typed `answers` with one
+`usage` for the call. jevper speaks that schema over any model and any OpenAI-compatible surface, so the
+questions can go to the endpoint you already have:
+
+```python
+from openai import OpenAI
+from jevper import SystemOneClient
+
+client = SystemOneClient(OpenAI(), model="gpt-5.6-terra")
+
+decision = client.decisions.create(
+    input="I was charged twice for the same subscription this month.",
+    questions=[
+        {
+            "type": "choice",
+            "name": "intent",
+            "instructions": "Pick the intent of the message.",
+            "choices": [
+                {"value": "billing", "description": "money, invoices, refunds, charges"},
+                {"value": "technical", "description": "errors, crashes, login or performance problems"},
+                {"value": "sales", "description": "pricing, plans, purchasing, upgrades"},
+            ],
+        }
+    ],
+)
+
+decision.model_dump()    # {"model": …, "answers": [ … ], "usage": { … }} — the wire's own three keys
+decision.answers[0].choice        # "billing", the option's own value
+decision.answers[0].confidence    # 0.73
+decision.raw                      # the jevper response behind it, kept and left out of every dump
+```
+
+OpenAI serves that schema on one route, `POST /v1/decisions`, in public beta and for `gpt-6-luna` alone;
+some gateways have begun to expose the same route, while a local llama.cpp, LM Studio, ollama, vLLM or
+SGLang server — or an Anthropic-compatible endpoint — does not serve it at all. Those are exactly the models
+jevper can put the same questions to, over Chat Completions, Responses or the Messages API. A model you run
+today therefore answers decisions you would otherwise wait for the route to reach, and the request you write
+and the payload you read back are the ones the route itself takes and returns — so moving to the route later
+is a swap of client rather than a rewrite: the OpenAI SDK serves it as the same
+`client.decisions.create(model=…, input=…, questions=…)`. Where the schema carries something jevper cannot
+ask — an `input_image` part above all — the request is refused before anything is sent rather than answered
+from evidence the model never saw. The [field-by-field mapping](docs/decisions.md) and what each answer
+carries are in the docs.
+
+## The Jev interface underneath
 
 The [Jev](https://docs.typesafe.ai) interface — `state` in, typed `questions` (`noul`, `choice`, `score`) out,
 `choice` and `score` answers carrying probabilities and confidence and a `noul` answer its `noul` — on top of
 any OpenAI-compatible model. The same `system_one(state=..., questions=...)` call reads the same against the
 hosted Jev endpoint, a self-hosted llama.cpp server, or `typesafe-sdk`'s own wire format, and the two packages
 are independent: neither imports the other, and jevper imports no provider SDK at all — any object exposing
-`responses.create`, `chat.completions.create` or `messages.create` works as the client.
+`responses.create`, `chat.completions.create` or `messages.create` works as the client. It is the call the
+Decisions wrapper is built on, and a `system_one` response converts to that schema with
+`response.to_decision()`.
 
 ```python
 from openai import OpenAI
@@ -33,8 +86,8 @@ response = client.system_one(
 
 answer = response.answers["intent"]
 answer.choice        # "billing"
-answer.probabilities # {"billing": 0.88, "technical": 0.08, "sales": 0.03}
-answer.confidence    # 0.83
+answer.probabilities # {"billing": 0.88, "technical": 0.09, "sales": 0.03}
+answer.confidence    # 0.82
 ```
 
 `method` defaults to `auto`: it asks for logprobs where the provider has them and answers in JSON where it
@@ -94,6 +147,8 @@ flowchart LR
 Each question has its own provider call sequence — one request in the ordinary case, more when reasoning,
 fallback or a retry adds one — so questions are independent and run concurrently
 (`max_concurrency`, default 8). Answers come back keyed by your question ids, in insertion order.
+`client.decisions.create(...)` above drives this same flow and hands back the wire's shape instead: the
+`answers` list in ask order, and one `usage` summed over the calls.
 
 ## Questions
 
@@ -105,6 +160,9 @@ labelled options, `Score` rates on an ordered scale:
 | `Noul(instructions=..., criteria={"true": ..., "false": ...})` | optional | `{"type": "noul", "noul": 0.93}` |
 | `Choice(instructions=..., criteria={"billing": "...", ...})` | 1–255 keys | `{"type": "choice", "choice": "billing", "probabilities": {...}, "confidence": 0.83}` |
 | `Score(instructions=..., criteria=["Calm", "Frustrated", "Very angry"])` | 2–10 levels | `{"type": "score", "score": 1.05, "legend": {...}, "probabilities": {...}, "confidence": 0.92}` |
+
+The Decisions API's three question kinds are these three under the wire's names — `predicate`, `choice`
+and `score` — so a rubric written for the wrapper reads the same way here.
 
 `Score.score` is the probability-weighted level index (`Σ i·pᵢ`, levels zero-based), as in the Jev API —
 read off the distribution rescaled to sum 1, so with `normalize_probabilities=False` the reported
@@ -401,7 +459,8 @@ uv pip install -e '.[test,mlflow]' && pytest -q tests/test_mlflow.py
 
 ## Docs
 
-Read the [jevper documentation site](https://zhulinchng.github.io/jevper/) for the quick start, a
+Read the [jevper documentation site](https://zhulinchng.github.io/jevper/) for the quick start,
+[Decisions API compatibility](https://zhulinchng.github.io/jevper/decisions/), a
 [complete example](https://zhulinchng.github.io/jevper/complete-example/) that sets every public option,
 method and surface selection, public API reference, local-server compatibility, reasoning, few-shot
 examples, troubleshooting, internals, and MLflow integration. Contributors can edit the Markdown under

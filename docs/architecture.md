@@ -27,7 +27,10 @@ The dependencies run one way: the facade drives, `prompts.py` and `methods.py` n
 and `transport.py` is the only module that touches the client; the full import graph is in
 [Internals](internals.md#module-map). No provider SDK is imported — the one runtime dependency is
 `pydantic` — so a local server, a hosted API and a hand-written stub are the same code path, and the
-same `SystemOneResponse` comes back from all three.
+same `SystemOneResponse` comes back from all three. Above the facade sits the Decisions wrapper
+(`decisions.py`): it translates OpenAI's Decisions request into this call and the documented response
+back out, so the layers below never know the request arrived in another schema — see
+[Decisions API compatibility](decisions.md).
 
 **The client contract.** jevper reads `chat.completions.create`, `responses.create` or
 `messages.create` off the object you pass, as attributes, and calls it with keyword arguments. The

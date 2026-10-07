@@ -1,5 +1,5 @@
 site_name: jevper
-site_description: Typed questions for OpenAI-compatible models
+site_description: OpenAI Decisions API answers from any OpenAI-compatible model
 site_url: https://zhulinchng.github.io/jevper/
 repo_name: zhulinchng/jevper
 repo_url: https://github.com/zhulinchng/jevper
@@ -10,7 +10,7 @@ extra_css:
 
 # The footer version is asserted against jevper.__version__ by tests/test_release_hygiene.py; see
 # the "Claims and releases" section of docs/contributing.md.
-copyright: "Copyright © 2026 Zhu Lin · jevper 0.7.11"
+copyright: "Copyright © 2026 Zhu Lin · jevper 0.7.12"
 
 theme:
   name: material
@@ -70,6 +70,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Decisions API: decisions.md
   - Complete example: complete-example.md
   - Architecture: architecture.md
   - Guides:

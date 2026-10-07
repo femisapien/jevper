@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 from fakes import StubServer, chat_body
 
-from jevper import AsyncSystemOneClient, SystemOneClient
+from jevper import AsyncDecisions, AsyncSystemOneClient, Decisions, SystemOneClient
 
 REPO = Path(__file__).resolve().parents[1]
 EXAMPLE = REPO / "examples" / "complete_call.py"
@@ -60,8 +60,14 @@ def _answer_for(body: dict[str, Any]) -> str:
 
 @pytest.mark.parametrize(
     "owner",
-    [SystemOneClient.__init__, SystemOneClient.system_one, AsyncSystemOneClient.system_one],
-    ids=["client", "system_one", "async_system_one"],
+    [
+        SystemOneClient.__init__,
+        SystemOneClient.system_one,
+        AsyncSystemOneClient.system_one,
+        Decisions.create,
+        AsyncDecisions.create,
+    ],
+    ids=["client", "system_one", "async_system_one", "decisions", "async_decisions"],
 )
 def test_the_complete_example_sets_every_public_option(owner: Any) -> None:
     source = EXAMPLE.read_text()
@@ -109,11 +115,12 @@ def test_the_complete_example_runs_and_sends_what_it_documents(
     assert "intent choice" in out
     assert "needs_human noul" in out
     assert "sentiment score" in out
+    assert "decision choice" in out
     assert "usage:" in out
 
-    # One provider call per question: native reasoning is one call, and both the method and the
-    # surface are pinned, so nothing is probed first.
-    assert len(stub.requests) == 3
+    # One provider call per question, plus the Decisions call: native reasoning is one call, and both
+    # the method and the surface are pinned, so nothing is probed first.
+    assert len(stub.requests) == 4
     for body, headers in zip(stub.requests, stub.headers):
         assert body["model"] == "stub-model"
         assert body["temperature"] == 0.0
@@ -189,6 +196,7 @@ def test_every_documented_table_is_well_formed(path: Path) -> None:
 
 _JEVPER_MODULES = (
     "client",
+    "decisions",
     "errors",
     "labels",
     "methods",

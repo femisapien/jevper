@@ -18,10 +18,12 @@ behind them.
 | `methods.py` | The four elicitation methods: request spec, schemas, grammar, readout |
 | `normalize.py` | Confidence and probability arithmetic (the reference adapter's formulas) |
 | `client.py` | Sync/async facades: orchestration, concurrency, retries, finalization, `debug` |
+| `decisions.py` | OpenAI's Decisions request and response schema over `system_one`: the wrapper's own models, the translation both ways, `Decisions`/`AsyncDecisions` |
 | `__init__.py` | Public re-exports and `__version__` |
 
-The dependency direction is one-way: `client → {methods, prompts, transport, types, normalize, labels,
-reasoning}`, `types → {errors, labels, reasoning}` and `labels → errors`. `labels.py` deliberately never
+The dependency direction is one-way: `client → {decisions, methods, prompts, transport, types, normalize,
+labels, reasoning}`, `decisions → {errors, prompts, reasoning, types}`, `types → {errors, labels,
+reasoning}` and `labels → errors`. `labels.py` deliberately never
 imports `types.py` at runtime (it is duck-typed on `question.type`) so the graph stays acyclic, and
 `types.validate_question` reaches `prompts` through one function-level import: an example's answer and its
 own numbers can only be checked against the question that carries it, and that check lives with the
